@@ -24,7 +24,7 @@ En **Cuentas → Respaldo**, toca **Guardar respaldo** y elige **Guardar en Arch
 - Reportes: gastos por categoría y comparativo de los últimos 6 meses.
 - Ocultar saldo, modo oscuro y exportación a CSV.
 - Proyección de ahorro (cuánto juntarás o cuánto debes ahorrar para una meta).
-- Pagos recurrentes que se registran solos (semanal, quincenal, mensual, anual) y avisos de próximos cobros.
+- Pagos programados (suscripciones, pagos de tarjeta, renta) con fecha de inicio y fin o número de pagos, que se registran solos o solo avisan, y total comprometido por mes.
 - Tarjetas de crédito: día de corte y de pago, pago para no generar intereses, compras a meses sin intereses y crédito disponible.
 - Metas de ahorro con aportaciones, avance y cuánto apartar al mes.
 - Deudas y préstamos (lo que debes y lo que te deben) con abonos.

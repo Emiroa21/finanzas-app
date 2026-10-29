@@ -44,6 +44,11 @@ export async function materializeRecurring(): Promise<number> {
       let next = r.nextDate
       // Tope de seguridad por si la app no se abrió en mucho tiempo.
       for (let i = 0; next <= today && i < 120; i++) {
+        if (r.endDate && next > r.endDate) break
+        if (r.auto === false) {
+          next = addPeriod(next, r.frequency, r.anchorDay)
+          continue
+        }
         await db.transactions.add({
           id: newId(),
           type: r.type,
@@ -59,7 +64,7 @@ export async function materializeRecurring(): Promise<number> {
         created++
         next = addPeriod(next, r.frequency, r.anchorDay)
       }
-      await db.recurring.update(r.id, { nextDate: next })
+      await db.recurring.update(r.id, { nextDate: next, active: !(r.endDate && next > r.endDate) })
     }
   })
   return created
@@ -68,5 +73,38 @@ export async function materializeRecurring(): Promise<number> {
 /** Crea la regla a partir del primer movimiento: la siguiente fecha es un periodo después. */
 export function recurringFrom(fields: Omit<Recurring, 'id' | 'anchorDay' | 'active' | 'nextDate'>, firstDate: string): Recurring {
   const anchorDay = parse(firstDate).d
-  return { ...fields, id: newId(), anchorDay, nextDate: addPeriod(firstDate, fields.frequency, anchorDay), active: true }
+  return { ...fields, id: newId(), anchorDay, nextDate: addPeriod(firstDate, fields.frequency, anchorDay), active: true, startDate: firstDate }
+}
+
+/** Fechas de pago de una regla entre dos fechas (inclusive), respetando su fin. */
+export function occurrences(r: Recurring, from: string, to: string, limit = 400): string[] {
+  const out: string[] = []
+  let d = r.nextDate
+  for (let i = 0; d <= to && i < limit; i++) {
+    if (r.endDate && d > r.endDate) break
+    if (d >= from) out.push(d)
+    d = addPeriod(d, r.frequency, r.anchorDay)
+  }
+  return out
+}
+
+/** Fecha del pago número n contando desde el inicio (n = 1 es el inicio). */
+export function nthDate(start: string, freq: RecurringFrequency, n: number): string {
+  const anchor = parse(start).d
+  let d = start
+  for (let i = 1; i < n; i++) d = addPeriod(d, freq, anchor)
+  return d
+}
+
+/** Pagos que faltan; null si no tiene fin. */
+export function remainingPayments(r: Recurring): number | null {
+  if (!r.endDate) return null
+  return r.active ? occurrences(r, r.nextDate, r.endDate).length : 0
+}
+
+/** Primera fecha de pago desde hoy, para no registrar pagos pasados al crear un plan que ya había empezado. */
+export function firstFrom(start: string, freq: RecurringFrequency, anchorDay: number, today: string): string {
+  let d = start
+  for (let i = 0; d < today && i < 2000; i++) d = addPeriod(d, freq, anchorDay)
+  return d
 }

@@ -43,3 +43,9 @@ export function dayLabel(iso: string): string {
   const label = new Date(y, m - 1, d).toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
+
+/** "5 nov 2026" */
+export function shortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '')
+}

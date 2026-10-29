@@ -996,3 +996,14 @@ input[type='checkbox'] {
 .row.alert .row-sub {
   white-space: normal;
 }
+
+.segmented.four {
+  grid-template-columns: 1.35fr 1fr 1fr 1fr;
+}
+.segmented.four button {
+  font-size: 13px;
+  padding: 7px 2px;
+}
+.row-sub.wrap {
+  white-space: normal;
+}

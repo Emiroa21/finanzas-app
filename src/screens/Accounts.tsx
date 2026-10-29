@@ -4,8 +4,6 @@ import { ImportSheet } from '../components/ImportSheet'
 import { Sheet } from '../components/Sheet'
 import { ACCOUNT_TYPES, COLORS, db, newId, requestPersistence, type Account, type AccountType, type Category, type CategoryKind } from '../db'
 import { cardStatus } from '../credit'
-import { FREQ_LABELS } from '../recurring'
-import type { Recurring, RecurringFrequency } from '../db'
 import { centsToInput, dayLabel, formatMoney, parseToCents } from '../format'
 import { disableLock, enableFaceId, faceIdAvailable, faceIdEnabled, lockEnabled, setPin } from '../lock'
 import { useStoredState, type AppData } from '../hooks'
@@ -13,7 +11,6 @@ import { useStoredState, type AppData } from '../hooks'
 export function Accounts({ data }: { data: AppData }) {
   const [account, setAccount] = useState<Account | 'new' | null>(null)
   const [category, setCategory] = useState<Category | 'new' | null>(null)
-  const [rule, setRule] = useState<Recurring | null>(null)
   const active = data.accounts.filter((a) => !a.archived)
   const archived = data.accounts.filter((a) => a.archived)
   const netWorth = active.reduce((s, a) => s + (data.balances.get(a.id) ?? 0), 0)
@@ -50,33 +47,6 @@ export function Accounts({ data }: { data: AppData }) {
 
       <section className="card list-card">
         <div className="card-title">
-          <span>Pagos recurrentes</span>
-        </div>
-        {data.recurring.length === 0 ? (
-          <p className="empty">Al registrar un movimiento elige "Repetir" para que se registre solo cada semana, quincena, mes o año.</p>
-        ) : (
-          data.recurring.map((r) => {
-            const c = data.categoryById.get(r.categoryId ?? '')
-            return (
-              <button key={r.id} className={`row ${r.active ? '' : 'inactive'}`} onClick={() => setRule(r)}>
-                <span className="row-icon" style={{ background: `${c?.color ?? '#8e8e93'}33` }}>
-                  {r.type === 'transfer' ? '⇄' : (c?.icon ?? '•')}
-                </span>
-                <span className="row-text">
-                  <span className="row-title">{r.note || c?.name || 'Transferencia'}</span>
-                  <span className="row-sub">
-                    {FREQ_LABELS[r.frequency]} · {r.active ? `próximo: ${dayLabel(r.nextDate).toLowerCase()}` : 'pausado'}
-                  </span>
-                </span>
-                <span className={`row-amount ${r.type}`}>{formatMoney(r.amount)}</span>
-              </button>
-            )
-          })
-        )}
-      </section>
-
-      <section className="card list-card">
-        <div className="card-title">
           <span>Categorías</span>
           <button className="link" onClick={() => setCategory('new')}>
             Agregar
@@ -99,7 +69,6 @@ export function Accounts({ data }: { data: AppData }) {
       <p className="footer-note">Tus datos viven solo en este iPhone. Haz un respaldo con frecuencia: si borras la app, se pierden.</p>
 
       {account && <AccountSheet data={data} account={account === 'new' ? undefined : account} onClose={() => setAccount(null)} />}
-      {rule && <RecurringSheet rule={rule} onClose={() => setRule(null)} />}
       {category && <CategorySheet data={data} category={category === 'new' ? undefined : category} onClose={() => setCategory(null)} />}
     </>
   )
@@ -117,72 +86,6 @@ function AccountRow({ account, balance, onClick }: { account: Account; balance: 
       </span>
       <span className={`row-amount ${balance < 0 ? 'expense' : ''}`}>{formatMoney(balance)}</span>
     </button>
-  )
-}
-
-function RecurringSheet({ rule, onClose }: { rule: Recurring; onClose: () => void }) {
-  const [amount, setAmount] = useState(centsToInput(rule.amount))
-  const [note, setNote] = useState(rule.note)
-  const [frequency, setFrequency] = useState<RecurringFrequency>(rule.frequency)
-  const [nextDate, setNextDate] = useState(rule.nextDate)
-  const [active, setActive] = useState(rule.active)
-
-  const save = async () => {
-    const cents = parseToCents(amount)
-    if (cents <= 0) return
-    await db.recurring.update(rule.id, { amount: cents, note: note.trim(), frequency, nextDate, active, anchorDay: Number(nextDate.slice(8)) })
-    onClose()
-  }
-
-  const remove = async () => {
-    if (confirm('¿Borrar este pago recurrente? Los movimientos que ya se registraron se quedan.')) {
-      await db.recurring.delete(rule.id)
-      onClose()
-    }
-  }
-
-  return (
-    <Sheet
-      title="Pago recurrente"
-      onClose={onClose}
-      action={
-        <button className="link bold" onClick={save}>
-          Guardar
-        </button>
-      }
-    >
-      <div className="form-list">
-        <label className="form-row">
-          <span>Monto</span>
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </label>
-        <label className="form-row">
-          <span>Nota</span>
-          <input value={note} placeholder="Ej. Netflix" onChange={(e) => setNote(e.target.value)} />
-        </label>
-        <label className="form-row">
-          <span>Frecuencia</span>
-          <select value={frequency} onChange={(e) => setFrequency(e.target.value as RecurringFrequency)}>
-            {Object.entries(FREQ_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="form-row">
-          <span>Próxima fecha</span>
-          <input type="date" value={nextDate} onChange={(e) => e.target.value && setNextDate(e.target.value)} />
-        </label>
-        <label className="form-row">
-          <span>Activo</span>
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-        </label>
-      </div>
-      <button className="danger-btn" onClick={remove}>
-        Borrar pago recurrente
-      </button>
-    </Sheet>
   )
 }
 

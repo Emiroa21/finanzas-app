@@ -64,6 +64,12 @@ export interface Recurring {
   /** Día del mes original, para que un día 31 no se recorra a 30 para siempre. */
   anchorDay: number
   active: boolean
+  /** Primer pago (AAAA-MM-DD). */
+  startDate?: string
+  /** Último día en que puede caer un pago; vacío = sin fin. */
+  endDate?: string
+  /** false = solo planear y avisar, sin registrar el movimiento. */
+  auto?: boolean
 }
 
 export interface Movement {

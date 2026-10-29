@@ -36,9 +36,18 @@ export function buildAlerts(data: AppData, lastBackup: number | null): Alert[] {
   }
 
   for (const r of data.recurring) {
-    if (!r.active || r.type !== 'expense' || r.nextDate > week) continue
+    if (!r.active || r.type === 'income' || r.nextDate > week || (r.endDate && r.nextDate > r.endDate)) continue
     const c = data.categoryById.get(r.categoryId ?? '')
-    alerts.push({ id: `rec-${r.id}`, icon: c?.icon ?? '🔁', title: r.note || c?.name || 'Pago recurrente', detail: 'Se registrará automáticamente', amount: r.amount, date: r.nextDate, tone: 'info' })
+    const card = r.type === 'transfer' ? '💳' : undefined
+    alerts.push({
+      id: `rec-${r.id}`,
+      icon: card ?? c?.icon ?? '🔁',
+      title: r.note || c?.name || 'Pago programado',
+      detail: r.auto === false ? 'Recuerda hacer este pago' : 'Se registrará automáticamente',
+      amount: r.amount,
+      date: r.nextDate,
+      tone: r.auto === false ? 'warn' : 'info',
+    })
   }
 
   for (const d of data.debts) {
