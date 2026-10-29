@@ -1,14 +1,17 @@
-import { db, type Account, type Budget, type Category, type Transaction } from './db'
+import { db, type Account, type Budget, type Category, type Debt, type Goal, type Recurring, type Transaction } from './db'
 import { todayISO } from './format'
 
 interface BackupFile {
   app: 'finanzas-app'
-  version: 1
+  version: 1 | 2
   exportedAt: string
   accounts: Account[]
   categories: Category[]
   transactions: Transaction[]
   budgets: Budget[]
+  recurring?: Recurring[]
+  goals?: Goal[]
+  debts?: Debt[]
 }
 
 /** Comparte el archivo (hoja de compartir de iOS) o lo descarga si no se puede. */
@@ -33,12 +36,15 @@ async function saveFile(name: string, type: string, content: string) {
 export async function exportJSON() {
   const data: BackupFile = {
     app: 'finanzas-app',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     accounts: await db.accounts.toArray(),
     categories: await db.categories.toArray(),
     transactions: await db.transactions.toArray(),
     budgets: await db.budgets.toArray(),
+    recurring: await db.recurring.toArray(),
+    goals: await db.goals.toArray(),
+    debts: await db.debts.toArray(),
   }
   await saveFile(`finanzas-respaldo-${todayISO()}.json`, 'application/json', JSON.stringify(data, null, 1))
   localStorage.setItem('lastBackup', JSON.stringify(Date.now()))
@@ -67,12 +73,16 @@ export async function exportCSV() {
 export async function importJSON(file: File): Promise<number> {
   const data = JSON.parse(await file.text()) as BackupFile
   if (data.app !== 'finanzas-app' || !Array.isArray(data.transactions)) throw new Error('El archivo no es un respaldo de esta app.')
-  await db.transaction('rw', [db.accounts, db.categories, db.transactions, db.budgets], async () => {
-    await Promise.all([db.accounts.clear(), db.categories.clear(), db.transactions.clear(), db.budgets.clear()])
+  const tables = [db.accounts, db.categories, db.transactions, db.budgets, db.recurring, db.goals, db.debts]
+  await db.transaction('rw', tables, async () => {
+    await Promise.all(tables.map((t) => t.clear()))
     await db.accounts.bulkAdd(data.accounts)
     await db.categories.bulkAdd(data.categories)
     await db.transactions.bulkAdd(data.transactions)
     await db.budgets.bulkAdd(data.budgets ?? [])
+    await db.recurring.bulkAdd(data.recurring ?? [])
+    await db.goals.bulkAdd(data.goals ?? [])
+    await db.debts.bulkAdd(data.debts ?? [])
   })
   return data.transactions.length
 }

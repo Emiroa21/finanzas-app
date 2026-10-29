@@ -824,3 +824,175 @@ input[type='checkbox'] {
 .year-table td:first-child {
   text-align: left;
 }
+
+/* Tarjetas de crédito */
+.credit-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.credit-card:last-of-type {
+  border-bottom: 0;
+}
+.credit-pay {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 0;
+}
+.credit-pay strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.credit-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.credit-grid b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.row.inactive {
+  opacity: 0.5;
+}
+
+.row.alert .row-icon {
+  background: var(--fill);
+}
+.row.alert.warn .row-sub {
+  color: var(--warn);
+}
+.row.alert.danger .row-sub {
+  color: var(--expense);
+}
+
+/* Metas y deudas */
+.spacer {
+  height: 6px;
+}
+.goal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 10px;
+}
+.goal-icon {
+  font-size: 30px;
+}
+.goal-pct {
+  font-weight: 700;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.btn-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.btn-row .primary-btn,
+.btn-row .secondary-btn {
+  padding: 9px;
+}
+.btn-row .hint {
+  margin: 0;
+}
+.add-big {
+  margin-bottom: 14px;
+  background: var(--card);
+  color: var(--blue);
+}
+.debt + .debt {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.hint.income {
+  color: var(--income);
+}
+.hint.expense {
+  color: var(--expense);
+}
+
+/* Bloqueo */
+.lock {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--safe-top) + 20px) 32px calc(var(--safe-bottom) + 20px);
+  max-width: 400px;
+  margin: 0 auto;
+}
+.lock-icon {
+  font-size: 40px;
+}
+.lock h2 {
+  margin: 8px 0 4px;
+}
+.pin-dots {
+  display: flex;
+  gap: 14px;
+  margin: 18px 0 28px;
+}
+.pin-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--muted);
+}
+.pin-dots span.on {
+  background: var(--text);
+  border-color: var(--text);
+}
+.lock-pad {
+  width: 100%;
+}
+.lock-pad button:disabled {
+  background: transparent;
+}
+.lock-faceid {
+  margin-top: 20px;
+}
+
+.scan-btn {
+  display: block;
+  margin: 6px auto 0;
+  padding: 7px 14px;
+  border-radius: 18px;
+  background: var(--card);
+  color: var(--blue);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.file-btn {
+  margin-top: 12px;
+  cursor: pointer;
+}
+.preview {
+  margin-top: 10px;
+  font-size: 14px;
+}
+.preview-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.preview-text span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row.alert .row-sub {
+  white-space: normal;
+}

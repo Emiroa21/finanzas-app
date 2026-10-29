@@ -13,6 +13,10 @@ export interface Account {
   color: string
   archived: boolean
   createdAt: number
+  /** Solo tarjetas de crédito: día del mes de corte y de pago, y límite en centavos. */
+  cutoffDay?: number
+  dueDay?: number
+  creditLimit?: number
 }
 
 export interface Category {
@@ -38,6 +42,59 @@ export interface Transaction {
   date: string
   note: string
   createdAt: number
+  /** Compra a meses sin intereses: número de mensualidades. */
+  installments?: number
+  /** Regla recurrente que generó este movimiento. */
+  recurringId?: string
+}
+
+export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'yearly'
+
+export interface Recurring {
+  id: string
+  type: TxType
+  amount: number
+  accountId: string
+  toAccountId?: string
+  categoryId?: string
+  note: string
+  frequency: RecurringFrequency
+  /** Próxima fecha en que se registrará (AAAA-MM-DD). */
+  nextDate: string
+  /** Día del mes original, para que un día 31 no se recorra a 30 para siempre. */
+  anchorDay: number
+  active: boolean
+}
+
+export interface Movement {
+  amount: number
+  date: string
+  note?: string
+}
+
+export interface Goal {
+  id: string
+  name: string
+  icon: string
+  /** Meta en centavos. */
+  target: number
+  targetDate?: string
+  /** Aportaciones (positivas) y retiros (negativos). */
+  moves: Movement[]
+  createdAt: number
+  done: boolean
+}
+
+export interface Debt {
+  id: string
+  person: string
+  /** owe: yo debo · owed: me deben */
+  direction: 'owe' | 'owed'
+  amount: number
+  note: string
+  dueDate?: string
+  payments: Movement[]
+  createdAt: number
 }
 
 export interface Budget {
@@ -52,6 +109,9 @@ export const db = new Dexie('finanzas') as Dexie & {
   categories: EntityTable<Category, 'id'>
   transactions: EntityTable<Transaction, 'id'>
   budgets: EntityTable<Budget, 'id'>
+  recurring: EntityTable<Recurring, 'id'>
+  goals: EntityTable<Goal, 'id'>
+  debts: EntityTable<Debt, 'id'>
 }
 
 db.version(1).stores({
@@ -59,6 +119,12 @@ db.version(1).stores({
   categories: 'id, kind, order',
   transactions: 'id, date, accountId, toAccountId, categoryId, type',
   budgets: 'id, &categoryId',
+})
+
+db.version(2).stores({
+  recurring: 'id, nextDate',
+  goals: 'id, createdAt',
+  debts: 'id, createdAt',
 })
 
 export const newId = () => crypto.randomUUID()

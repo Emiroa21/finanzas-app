@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { db, newId, type Transaction, type TxType } from '../db'
+import { useRef, useState } from 'react'
+import { db, newId, type RecurringFrequency, type Transaction, type TxType } from '../db'
+import { FREQ_LABELS, recurringFrom } from '../recurring'
+import { scanReceipt } from '../receipt'
 import { centsToInput, formatMoney, parseToCents, todayISO } from '../format'
 import { useStoredState, type AppData } from '../hooks'
 import { Sheet } from './Sheet'
@@ -31,8 +33,32 @@ export function TxSheet({ data, tx, onClose }: Props) {
   const [categoryId, setCategoryId] = useState(tx?.categoryId ?? lastCategory.expense ?? '')
   const [date, setDate] = useState(tx?.date ?? todayISO())
   const [note, setNote] = useState(tx?.note ?? '')
+  const [repeat, setRepeat] = useState<RecurringFrequency | ''>('')
+  const [installments, setInstallments] = useState(tx?.installments ? String(tx.installments) : '')
   const [error, setError] = useState('')
+  const [scanning, setScanning] = useState<number | null>(null)
+  const photoRef = useRef<HTMLInputElement>(null)
 
+  const onPhoto = async (file?: File) => {
+    if (!file) return
+    setError('')
+    setScanning(0)
+    try {
+      const guess = await scanReceipt(file, setScanning)
+      if (guess.amount) setAmount(centsToInput(guess.amount))
+      if (guess.date) setDate(guess.date)
+      if (guess.merchant) setNote(guess.merchant)
+      const cat = guess.category && data.categories.find((c) => c.kind === 'expense' && c.name === guess.category)
+      if (cat) setCategoryId(cat.id)
+      if (!guess.amount) setError('No encontré el total; escríbelo con el teclado.')
+    } catch {
+      setError('No se pudo leer el ticket. Revisa tu conexión la primera vez que lo uses.')
+    } finally {
+      setScanning(null)
+    }
+  }
+
+  const isCredit = data.accountById.get(accountId)?.type === 'credit'
   const categories = data.categories.filter((c) => c.kind === (type === 'income' ? 'income' : 'expense'))
   const cents = parseToCents(amount)
 
@@ -73,6 +99,16 @@ export function TxSheet({ data, tx, onClose }: Props) {
       date,
       note: note.trim(),
       createdAt: tx?.createdAt ?? Date.now(),
+      recurringId: tx?.recurringId,
+      installments: isCredit && type === 'expense' && Number(installments) > 1 ? Number(installments) : undefined,
+    }
+    if (repeat && !tx) {
+      const rule = recurringFrom(
+        { type, amount: cents, accountId, toAccountId: record.toAccountId, categoryId: record.categoryId, note: record.note, frequency: repeat },
+        date,
+      )
+      record.recurringId = rule.id
+      await db.recurring.add(rule)
     }
     await db.transactions.put(record)
     setLastAccount(accountId)
@@ -104,6 +140,15 @@ export function TxSheet({ data, tx, onClose }: Props) {
           </button>
         ))}
       </div>
+
+      {!tx && type === 'expense' && (
+        <>
+          <button className="scan-btn" onClick={() => photoRef.current?.click()} disabled={scanning !== null}>
+            {scanning === null ? '📷 Escanear ticket' : `Leyendo ticket… ${Math.round(scanning * 100)}%`}
+          </button>
+          <input ref={photoRef} type="file" accept="image/*" hidden onChange={(e) => onPhoto(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
+        </>
+      )}
 
       <div className={`amount-display ${type}`}>{amount ? formatMoney(cents) : formatMoney(0)}</div>
       {error && <p className="error">{error}</p>}
@@ -159,6 +204,35 @@ export function TxSheet({ data, tx, onClose }: Props) {
           <span>Nota</span>
           <input type="text" placeholder="Opcional" value={note} maxLength={80} onChange={(e) => setNote(e.target.value)} />
         </label>
+      </div>
+
+      <div className="field-row">
+        {!tx && (
+          <label>
+            <span>Repetir</span>
+            <select value={repeat} onChange={(e) => setRepeat(e.target.value as RecurringFrequency | '')}>
+              <option value="">No se repite</option>
+              {Object.entries(FREQ_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {isCredit && type === 'expense' && (
+          <label>
+            <span>Meses sin intereses</span>
+            <select value={installments} onChange={(e) => setInstallments(e.target.value)}>
+              <option value="">De contado</option>
+              {[3, 6, 9, 12, 18, 24].map((n) => (
+                <option key={n} value={n}>
+                  {n} MSI
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="keypad">

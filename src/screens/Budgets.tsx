@@ -21,12 +21,6 @@ export function Budgets({ data }: { data: AppData }) {
 
   return (
     <>
-      <div className="title-row">
-        <h1 className="title">Presupuestos</h1>
-        <button className="link bold" onClick={() => setEditing(true)}>
-          Editar
-        </button>
-      </div>
       <MonthPicker month={month} onChange={setMonth} />
 
       {rows.length === 0 ? (
@@ -41,6 +35,12 @@ export function Budgets({ data }: { data: AppData }) {
           <section className="card">
             <div className="card-title">
               <span>Total</span>
+              <button className="link" onClick={() => setEditing(true)}>
+                Editar
+              </button>
+            </div>
+            <div className="card-title small">
+              <span />
               <span className="muted">
                 {formatMoney(spent)} de {formatMoney(limit)}
               </span>

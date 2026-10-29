@@ -1,17 +1,21 @@
+import { buildAlerts } from '../alerts'
 import { EyeIcon } from '../components/Icons'
 import { TxRow } from '../components/TxRow'
 import type { Transaction } from '../db'
-import { currentMonth, formatMoney, monthLabel } from '../format'
+import { currentMonth, dayLabel, formatMoney, monthLabel } from '../format'
 import { monthTotals, useStoredState, type AppData } from '../hooks'
 
 interface Props {
   data: AppData
   onEdit: (tx: Transaction) => void
   onSeeAll: () => void
+  onBackup: () => void
 }
 
-export function Home({ data, onEdit, onSeeAll }: Props) {
+export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
   const [hidden, setHidden] = useStoredState('hideBalance', false)
+  const [lastBackup] = useStoredState<number | null>('lastBackup', null)
+  const alerts = buildAlerts(data, lastBackup)
   const month = currentMonth()
   const totals = monthTotals(data.transactions, month)
   const total = data.accounts.filter((a) => !a.archived).reduce((sum, a) => sum + (data.balances.get(a.id) ?? 0), 0)
@@ -43,6 +47,24 @@ export function Home({ data, onEdit, onSeeAll }: Props) {
           </div>
         </div>
       </section>
+
+      {alerts.length > 0 && (
+        <section className="card list-card">
+          <div className="card-title">
+            <span>Próximos pagos y avisos</span>
+          </div>
+          {alerts.map((a) => (
+            <button key={a.id} className={`row alert ${a.tone}`} onClick={a.id === 'backup' ? onBackup : undefined}>
+              <span className="row-icon">{a.icon}</span>
+              <span className="row-text">
+                <span className="row-title">{a.title}</span>
+                <span className="row-sub">{[a.date && dayLabel(a.date), a.detail].filter(Boolean).join(' · ')}</span>
+              </span>
+              {a.amount !== undefined && <span className="row-amount">{mask(a.amount)}</span>}
+            </button>
+          ))}
+        </section>
+      )}
 
       {budgetTotal > 0 && (
         <section className="card">

@@ -23,6 +23,14 @@ En **Cuentas → Respaldo**, toca **Guardar respaldo** y elige **Guardar en Arch
 - Presupuestos mensuales por categoría con alertas al 80% y 100%.
 - Reportes: gastos por categoría y comparativo de los últimos 6 meses.
 - Ocultar saldo, modo oscuro y exportación a CSV.
+- Proyección de ahorro (cuánto juntarás o cuánto debes ahorrar para una meta).
+- Pagos recurrentes que se registran solos (semanal, quincenal, mensual, anual) y avisos de próximos cobros.
+- Tarjetas de crédito: día de corte y de pago, pago para no generar intereses, compras a meses sin intereses y crédito disponible.
+- Metas de ahorro con aportaciones, avance y cuánto apartar al mes.
+- Deudas y préstamos (lo que debes y lo que te deben) con abonos.
+- Bloqueo con PIN y Face ID, y aviso semanal de respaldo.
+- Escaneo de tickets con OCR en el teléfono (la primera vez necesita internet para bajar el idioma).
+- Importar estados de cuenta en CSV con detección de duplicados.
 
 ## Desarrollo
 
