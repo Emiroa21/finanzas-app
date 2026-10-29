@@ -1,9 +1,29 @@
 import { useState } from 'react'
 import { MonthPicker } from '../components/MonthPicker'
 import { currentMonth, formatMoney, monthLabel, shiftMonth } from '../format'
-import { monthTotals, type AppData } from '../hooks'
+import { monthTotals, useStoredState, type AppData } from '../hooks'
+import { Projection } from './Projection'
 
 export function Reports({ data }: { data: AppData }) {
+  const [view, setView] = useStoredState<'summary' | 'projection'>('reportsView', 'summary')
+
+  return (
+    <>
+      <h1 className="title">Reportes</h1>
+      <div className="segmented two">
+        <button className={view === 'summary' ? 'on' : ''} onClick={() => setView('summary')}>
+          Resumen
+        </button>
+        <button className={view === 'projection' ? 'on' : ''} onClick={() => setView('projection')}>
+          Proyección de ahorro
+        </button>
+      </div>
+      {view === 'summary' ? <Summary data={data} /> : <Projection data={data} />}
+    </>
+  )
+}
+
+function Summary({ data }: { data: AppData }) {
   const [month, setMonth] = useState(currentMonth())
   const totals = monthTotals(data.transactions, month)
   const slices = [...totals.byCategory].sort((a, b) => b[1] - a[1])
@@ -13,7 +33,6 @@ export function Reports({ data }: { data: AppData }) {
 
   return (
     <>
-      <h1 className="title">Reportes</h1>
       <MonthPicker month={month} onChange={setMonth} />
 
       <section className="card">
