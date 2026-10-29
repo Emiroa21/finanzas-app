@@ -46,6 +46,8 @@ export interface Transaction {
   installments?: number
   /** Regla recurrente que generó este movimiento. */
   recurringId?: string
+  /** Fecha programada del pago que este movimiento confirma. */
+  dueDate?: string
 }
 
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'yearly'

@@ -1,4 +1,6 @@
 import { buildAlerts } from '../alerts'
+import { useState } from 'react'
+import { ConfirmPaymentSheet } from '../components/ConfirmPaymentSheet'
 import { EyeIcon } from '../components/Icons'
 import { TxRow } from '../components/TxRow'
 import type { Transaction } from '../db'
@@ -16,6 +18,8 @@ export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
   const [hidden, setHidden] = useStoredState('hideBalance', false)
   const [lastBackup] = useStoredState<number | null>('lastBackup', null)
   const alerts = buildAlerts(data, lastBackup)
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const paying = data.recurring.find((r) => r.id === payingId)
   const month = currentMonth()
   const totals = monthTotals(data.transactions, month)
   const total = data.accounts.filter((a) => !a.archived).reduce((sum, a) => sum + (data.balances.get(a.id) ?? 0), 0)
@@ -54,7 +58,7 @@ export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
             <span>Próximos pagos y avisos</span>
           </div>
           {alerts.map((a) => (
-            <button key={a.id} className={`row alert ${a.tone}`} onClick={a.id === 'backup' ? onBackup : undefined}>
+            <button key={a.id} className={`row alert ${a.tone}`} onClick={a.id === 'backup' ? onBackup : a.ruleId ? () => setPayingId(a.ruleId!) : undefined}>
               <span className="row-icon">{a.icon}</span>
               <span className="row-text">
                 <span className="row-title">{a.title}</span>
@@ -115,6 +119,8 @@ export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
           data.transactions.slice(0, 5).map((t) => <TxRow key={t.id} tx={t} data={data} onClick={() => onEdit(t)} />)
         )}
       </section>
+
+      {paying && <ConfirmPaymentSheet data={data} rule={paying} onClose={() => setPayingId(null)} />}
     </>
   )
 }

@@ -32,7 +32,7 @@ export function PaymentSheet({ data, rule, onClose }: Props) {
   const [ends, setEnds] = useState<Ends>(rule?.endDate ? 'date' : 'never')
   const [endDate, setEndDate] = useState(rule?.endDate ?? '')
   const [count, setCount] = useState('12')
-  const [auto, setAuto] = useState(rule?.auto !== false)
+  const [auto, setAuto] = useState(rule ? rule.auto !== false : false)
   const [enabled, setEnabled] = useState(rule?.active ?? true)
   const [error, setError] = useState('')
 
@@ -179,7 +179,7 @@ export function PaymentSheet({ data, rule, onClose }: Props) {
           </label>
         )}
         <label className="form-row">
-          <span>Registrar solo</span>
+          <span>Registrar sin confirmar</span>
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
         </label>
         {rule && (
@@ -191,7 +191,7 @@ export function PaymentSheet({ data, rule, onClose }: Props) {
       </div>
       <p className="hint">
         {lastDate ? `Último pago: ${dayLabel(lastDate).toLowerCase()}.` : 'Se repite hasta que lo pauses o lo borres.'}{' '}
-        {auto ? 'Cada pago se registra solo en su fecha.' : 'Solo se planea y te avisa; tú registras el pago.'}
+        {auto ? 'Cada pago se registra solo en su fecha, sin preguntarte.' : 'En su fecha te queda pendiente hasta que confirmes "Ya lo pagué".'}
       </p>
       {!rule && date < todayISO() && <p className="hint">Como la fecha de inicio ya pasó, solo se registrarán los pagos de hoy en adelante.</p>}
       {error && <p className="error">{error}</p>}

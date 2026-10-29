@@ -10,6 +10,8 @@ export interface Alert {
   amount?: number
   date?: string
   tone: 'info' | 'warn' | 'danger'
+  /** Pago programado que se puede confirmar desde el aviso. */
+  ruleId?: string
 }
 
 const inDays = (n: number) => toISODate(new Date(Date.now() + n * 864e5))
@@ -43,10 +45,11 @@ export function buildAlerts(data: AppData, lastBackup: number | null): Alert[] {
       id: `rec-${r.id}`,
       icon: card ?? c?.icon ?? '🔁',
       title: r.note || c?.name || 'Pago programado',
-      detail: r.auto === false ? 'Recuerda hacer este pago' : 'Se registrará automáticamente',
+      detail: r.auto === false ? (r.nextDate < today ? 'Pendiente · toca para confirmar' : 'Toca cuando lo pagues') : 'Se registrará automáticamente',
       amount: r.amount,
       date: r.nextDate,
-      tone: r.auto === false ? 'warn' : 'info',
+      tone: r.auto === false ? (r.nextDate < today ? 'danger' : 'warn') : 'info',
+      ruleId: r.auto === false ? r.id : undefined,
     })
   }
 

@@ -40,15 +40,12 @@ export async function materializeRecurring(): Promise<number> {
   await db.transaction('rw', db.recurring, db.transactions, async () => {
     const due = await db.recurring.where('nextDate').belowOrEqual(today).toArray()
     for (const r of due) {
-      if (!r.active) continue
+      // Los pagos con confirmación se quedan pendientes hasta que digas "Ya lo pagué".
+      if (!r.active || r.auto === false) continue
       let next = r.nextDate
       // Tope de seguridad por si la app no se abrió en mucho tiempo.
       for (let i = 0; next <= today && i < 120; i++) {
         if (r.endDate && next > r.endDate) break
-        if (r.auto === false) {
-          next = addPeriod(next, r.frequency, r.anchorDay)
-          continue
-        }
         await db.transactions.add({
           id: newId(),
           type: r.type,
@@ -107,4 +104,38 @@ export function firstFrom(start: string, freq: RecurringFrequency, anchorDay: nu
   let d = start
   for (let i = 0; d < today && i < 2000; i++) d = addPeriod(d, freq, anchorDay)
   return d
+}
+
+/** El pago ya tocó (o se pasó) y espera confirmación. */
+export const isPending = (r: Recurring, today: string) => r.active && r.auto === false && r.nextDate <= today && !(r.endDate && r.nextDate > r.endDate)
+
+/** Avanza al siguiente pago; si ya no hay más, termina el plan. */
+async function advance(r: Recurring) {
+  const next = addPeriod(r.nextDate, r.frequency, r.anchorDay)
+  await db.recurring.update(r.id, { nextDate: next, active: !(r.endDate && next > r.endDate) })
+}
+
+/** Marca el pago actual como pagado: registra el movimiento y pasa al siguiente. */
+export async function confirmPayment(r: Recurring, paid: { amount: number; date: string; accountId: string }) {
+  await db.transaction('rw', db.recurring, db.transactions, async () => {
+    await db.transactions.add({
+      id: newId(),
+      type: r.type,
+      amount: paid.amount,
+      accountId: paid.accountId,
+      toAccountId: r.toAccountId,
+      categoryId: r.categoryId,
+      date: paid.date,
+      note: r.note,
+      createdAt: Date.now(),
+      recurringId: r.id,
+      dueDate: r.nextDate,
+    })
+    await advance(r)
+  })
+}
+
+/** Salta el pago actual sin registrar nada. */
+export async function skipPayment(r: Recurring) {
+  await advance(r)
 }
