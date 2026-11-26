@@ -1,13 +1,23 @@
 import type { Transaction } from '../db'
-import { formatMoney } from '../format'
+import { formatMoney, toISODate } from '../format'
 import type { AppData } from '../hooks'
 
-export function TxRow({ tx, data, onClick }: { tx: Transaction; data: AppData; onClick: () => void }) {
+/** "10:05 a. m. · 15 nov" para listas sin encabezado de día. */
+function when(tx: Transaction): string {
+  const [y, m, d] = tx.date.split('-').map(Number)
+  const date = new Date(y, m - 1, d).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '')
+  const created = new Date(tx.createdAt)
+  if (toISODate(created) !== tx.date) return date
+  return `${created.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })} · ${date}`
+}
+
+export function TxRow({ tx, data, onClick, showDate }: { tx: Transaction; data: AppData; onClick: () => void; showDate?: boolean }) {
   const cat = data.categoryById.get(tx.categoryId ?? '')
   const account = data.accountById.get(tx.accountId)
   const isTransfer = tx.type === 'transfer'
   const title = isTransfer ? 'Transferencia' : (cat?.name ?? 'Sin categoría')
-  const subtitle = isTransfer ? `${account?.name ?? '?'} → ${data.accountById.get(tx.toAccountId ?? '')?.name ?? '?'}` : [tx.note, account?.name].filter(Boolean).join(' · ')
+  const detail = isTransfer ? `${account?.name ?? '?'} → ${data.accountById.get(tx.toAccountId ?? '')?.name ?? '?'}` : [tx.note, account?.name].filter(Boolean).join(' · ')
+  const subtitle = showDate ? [when(tx), detail].filter(Boolean).join(' · ') : detail
   const sign = tx.type === 'expense' ? '−' : tx.type === 'income' ? '+' : ''
 
   return (

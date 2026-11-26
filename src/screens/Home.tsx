@@ -1,22 +1,41 @@
 import { buildAlerts } from '../alerts'
 import { useState } from 'react'
 import { ConfirmPaymentSheet } from '../components/ConfirmPaymentSheet'
-import { EyeIcon } from '../components/Icons'
+import { Sheet } from '../components/Sheet'
 import { TxRow } from '../components/TxRow'
-import type { Transaction } from '../db'
+import { Wallet } from '../components/Wallet'
+import type { Account, Transaction, TxType } from '../db'
 import { currentMonth, dayLabel, formatMoney, monthLabel } from '../format'
 import { monthTotals, useStoredState, type AppData } from '../hooks'
+import { AccountSheet } from './Accounts'
 
 interface Props {
   data: AppData
   onEdit: (tx: Transaction) => void
+  onNew: (type: TxType) => void
   onSeeAll: () => void
   onBackup: () => void
+  onPlan: () => void
 }
 
-export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
+const ACTIONS: [TxType | 'plan', string, string][] = [
+  ['expense', 'Gasto', '↗'],
+  ['income', 'Ingreso', '↙'],
+  ['transfer', 'Transferir', '⇄'],
+  ['plan', 'Planear', '▦'],
+]
+
+function greeting(): string {
+  const h = new Date().getHours()
+  return h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches'
+}
+
+export function Home({ data, onEdit, onNew, onSeeAll, onBackup, onPlan }: Props) {
   const [hidden, setHidden] = useStoredState('hideBalance', false)
   const [lastBackup] = useStoredState<number | null>('lastBackup', null)
+  const [userName, setUserName] = useStoredState('userName', '')
+  const [profile, setProfile] = useState(false)
+  const [editing, setEditing] = useState<Account | null>(null)
   const alerts = buildAlerts(data, lastBackup)
   const [payingId, setPayingId] = useState<string | null>(null)
   const paying = data.recurring.find((r) => r.id === payingId)
@@ -27,33 +46,55 @@ export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
   const budgetSpent = data.budgets.reduce((s, b) => s + (totals.byCategory.get(b.categoryId) ?? 0), 0)
   const top = [...totals.byCategory].sort((a, b) => b[1] - a[1]).slice(0, 4)
   const mask = (cents: number) => (hidden ? '•••••' : formatMoney(cents))
+  const urgent = alerts.some((a) => a.tone === 'danger' || a.tone === 'warn')
 
   return (
     <>
-      <h1 className="title">Inicio</h1>
-
-      <section className="card hero">
-        <div className="hero-top">
-          <span className="muted">Saldo total</span>
-          <button className="icon-btn" aria-label={hidden ? 'Mostrar saldo' : 'Ocultar saldo'} onClick={() => setHidden(!hidden)}>
-            <EyeIcon off={hidden} />
-          </button>
+      <header className="greet">
+        <div>
+          <h1>{userName ? `Hola, ${userName}` : greeting()}</h1>
+          <p>Cuidemos tu dinero.</p>
         </div>
-        <div className="hero-amount">{mask(total)}</div>
-        <div className="hero-split">
-          <div>
-            <span className="muted">Ingresos de {monthLabel(month, true)}</span>
-            <strong className="income">{mask(totals.income)}</strong>
-          </div>
-          <div>
-            <span className="muted">Gastos de {monthLabel(month, true)}</span>
-            <strong className="expense">{mask(totals.expense)}</strong>
-          </div>
+        <button
+          className="round-btn"
+          aria-label={`Avisos: ${alerts.length}`}
+          onClick={() => document.getElementById('avisos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        >
+          🔔{alerts.length > 0 && <span className={`dot ${urgent ? 'urgent' : ''}`} />}
+        </button>
+        <button className="avatar" aria-label="Tu perfil" onClick={() => setProfile(true)}>
+          {userName ? userName.trim().charAt(0).toUpperCase() : '🙂'}
+        </button>
+      </header>
+
+      <Wallet data={data} hidden={hidden} onToggleHidden={() => setHidden(!hidden)} onOpen={setEditing} />
+
+      <section className="card actions">
+        {ACTIONS.map(([id, label, icon]) => (
+          <button key={id} onClick={() => (id === 'plan' ? onPlan() : onNew(id))}>
+            <span className={`action-icon ${id}`}>{icon}</span>
+            {label}
+          </button>
+        ))}
+      </section>
+
+      <section className="card month-card">
+        <div>
+          <span className="muted">Saldo total</span>
+          <strong>{mask(total)}</strong>
+        </div>
+        <div>
+          <span className="muted">Ingresos {monthLabel(month, true).toLowerCase()}</span>
+          <strong className="income">{mask(totals.income)}</strong>
+        </div>
+        <div>
+          <span className="muted">Gastos {monthLabel(month, true).toLowerCase()}</span>
+          <strong className="expense">{mask(totals.expense)}</strong>
         </div>
       </section>
 
       {alerts.length > 0 && (
-        <section className="card list-card">
+        <section className="card list-card" id="avisos">
           <div className="card-title">
             <span>Próximos pagos y avisos</span>
           </div>
@@ -106,7 +147,7 @@ export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
 
       <section className="card list-card">
         <div className="card-title">
-          <span>Últimos movimientos</span>
+          <span>Tus movimientos</span>
           {data.transactions.length > 0 && (
             <button className="link" onClick={onSeeAll}>
               Ver todos
@@ -114,14 +155,45 @@ export function Home({ data, onEdit, onSeeAll, onBackup }: Props) {
           )}
         </div>
         {data.transactions.length === 0 ? (
-          <p className="empty">Aún no hay movimientos. Toca el botón + para registrar el primero.</p>
+          <p className="empty">Aún no hay movimientos. Usa Gasto o Ingreso para registrar el primero.</p>
         ) : (
-          data.transactions.slice(0, 5).map((t) => <TxRow key={t.id} tx={t} data={data} onClick={() => onEdit(t)} />)
+          data.transactions.slice(0, 8).map((t) => <TxRow key={t.id} tx={t} data={data} showDate onClick={() => onEdit(t)} />)
         )}
       </section>
 
       {paying && <ConfirmPaymentSheet data={data} rule={paying} onClose={() => setPayingId(null)} />}
+      {editing && <AccountSheet data={data} account={editing} onClose={() => setEditing(null)} />}
+      {profile && <ProfileSheet name={userName} onSave={setUserName} onClose={() => setProfile(false)} />}
     </>
+  )
+}
+
+function ProfileSheet({ name, onSave, onClose }: { name: string; onSave: (n: string) => void; onClose: () => void }) {
+  const [value, setValue] = useState(name)
+  return (
+    <Sheet
+      title="Tu perfil"
+      onClose={onClose}
+      action={
+        <button
+          className="link bold"
+          onClick={() => {
+            onSave(value.trim())
+            onClose()
+          }}
+        >
+          Guardar
+        </button>
+      }
+    >
+      <div className="form-list">
+        <label className="form-row">
+          <span>¿Cómo te llamas?</span>
+          <input value={value} placeholder="Tu nombre" maxLength={24} onChange={(e) => setValue(e.target.value)} />
+        </label>
+      </div>
+      <p className="hint">Solo se usa para saludarte en Inicio y se queda en este iPhone.</p>
+    </Sheet>
   )
 }
 

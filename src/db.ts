@@ -17,7 +17,14 @@ export interface Account {
   cutoffDay?: number
   dueDay?: number
   creditLimit?: number
+  /** Datos visibles de la tarjeta física: solo los últimos 4 dígitos, nunca el número completo ni el CVV. */
+  last4?: string
+  brand?: CardBrand
+  /** Vencimiento en formato MM/AA. */
+  expiry?: string
 }
+
+export type CardBrand = 'visa' | 'mastercard' | 'amex' | 'carnet' | 'other'
 
 export interface Category {
   id: string

@@ -2,7 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ChartIcon, GaugeIcon, HomeIcon, ListIcon, PlusIcon, WalletIcon } from './components/Icons'
 import { LockScreen } from './components/LockScreen'
 import { TxSheet } from './components/TxSheet'
-import { requestPersistence, type Transaction } from './db'
+import { Splash } from './components/Splash'
+import { requestPersistence, type Transaction, type TxType } from './db'
 import { useData } from './hooks'
 import { lockEnabled } from './lock'
 import { materializeRecurring } from './recurring'
@@ -28,7 +29,8 @@ const TABS: [Tab, string, ReactNode][] = [
 export function App() {
   const data = useData()
   const [tab, setTab] = useState<Tab>('home')
-  const [sheet, setSheet] = useState<Transaction | 'new' | null>(null)
+  const [sheet, setSheet] = useState<Transaction | TxType | null>(null)
+  const [splash, setSplash] = useState(true)
   const [locked, setLocked] = useState(lockEnabled)
 
   useEffect(() => {
@@ -53,6 +55,7 @@ export function App() {
     window.scrollTo(0, 0)
   }, [tab])
 
+  if (splash) return <Splash ready={!!data} onDone={() => setSplash(false)} />
   if (locked) return <LockScreen onUnlock={() => setLocked(false)} />
   if (!data) return <div className="loading">Cargando…</div>
 
@@ -61,29 +64,46 @@ export function App() {
   return (
     <>
       <main className="screen">
-        {tab === 'home' && <Home data={data} onEdit={edit} onSeeAll={() => setTab('transactions')} onBackup={() => setTab('accounts')} />}
+        {tab === 'home' && (
+          <Home
+            data={data}
+            onEdit={edit}
+            onNew={(t) => setSheet(t)}
+            onSeeAll={() => setTab('transactions')}
+            onBackup={() => setTab('accounts')}
+            onPlan={() => setTab('plan')}
+          />
+        )}
         {tab === 'transactions' && <Transactions data={data} onEdit={edit} />}
         {tab === 'plan' && <Plan data={data} />}
         {tab === 'reports' && <Reports data={data} />}
         {tab === 'accounts' && <Accounts data={data} />}
       </main>
 
-      {tab !== 'accounts' && (
-        <button className="fab" aria-label="Agregar movimiento" onClick={() => setSheet('new')}>
+      {tab !== 'accounts' && tab !== 'home' && (
+        <button className="fab" aria-label="Agregar movimiento" onClick={() => setSheet('expense')}>
           <PlusIcon />
         </button>
       )}
 
       <nav className="tabbar">
         {TABS.map(([id, label, icon]) => (
-          <button key={id} className={id === tab ? 'on' : ''} onClick={() => setTab(id)}>
+          <button key={id} className={id === tab ? 'on' : ''} aria-label={label} aria-current={id === tab ? 'page' : undefined} onClick={() => setTab(id)}>
             {icon}
-            <span>{label}</span>
+            {id === tab && <span>{label}</span>}
           </button>
         ))}
       </nav>
 
-      {sheet && <TxSheet key={sheet === 'new' ? 'new' : sheet.id} data={data} tx={sheet === 'new' ? undefined : sheet} onClose={() => setSheet(null)} />}
+      {sheet && (
+        <TxSheet
+          key={typeof sheet === 'string' ? sheet : sheet.id}
+          data={data}
+          tx={typeof sheet === 'string' ? undefined : sheet}
+          initialType={typeof sheet === 'string' ? sheet : undefined}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </>
   )
 }

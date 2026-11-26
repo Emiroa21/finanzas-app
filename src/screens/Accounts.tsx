@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { exportCSV, exportJSON, importJSON } from '../backup'
+import { BRAND_LABELS, formatExpiry, validExpiry } from '../cards'
 import { ImportSheet } from '../components/ImportSheet'
 import { Sheet } from '../components/Sheet'
-import { ACCOUNT_TYPES, COLORS, db, newId, requestPersistence, type Account, type AccountType, type Category, type CategoryKind } from '../db'
+import { ACCOUNT_TYPES, COLORS, db, newId, requestPersistence, type Account, type AccountType, type CardBrand, type Category, type CategoryKind } from '../db'
 import { cardStatus } from '../credit'
 import { centsToInput, dayLabel, formatMoney, parseToCents } from '../format'
 import { disableLock, enableFaceId, faceIdAvailable, faceIdEnabled, lockEnabled, setPin } from '../lock'
@@ -159,7 +160,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
   )
 }
 
-function AccountSheet({ data, account, onClose }: { data: AppData; account?: Account; onClose: () => void }) {
+export function AccountSheet({ data, account, onClose }: { data: AppData; account?: Account; onClose: () => void }) {
   const [name, setName] = useState(account?.name ?? '')
   const [type, setType] = useState<AccountType>(account?.type ?? 'debit')
   const [initial, setInitial] = useState(account ? centsToInput(Math.abs(account.initialBalance)) : '')
@@ -169,6 +170,10 @@ function AccountSheet({ data, account, onClose }: { data: AppData; account?: Acc
   const [cutoffDay, setCutoffDay] = useState(account?.cutoffDay ? String(account.cutoffDay) : '')
   const [dueDay, setDueDay] = useState(account?.dueDay ? String(account.dueDay) : '')
   const [limit, setLimit] = useState(account?.creditLimit ? centsToInput(account.creditLimit) : '')
+  const [last4, setLast4] = useState(account?.last4 ?? '')
+  const [expiry, setExpiry] = useState(account?.expiry ?? '')
+  const [brand, setBrand] = useState<CardBrand | ''>(account?.brand ?? '')
+  const isCard = type === 'credit' || type === 'debit' || type === 'savings'
   const used = account ? data.transactions.some((t) => t.accountId === account.id || t.toAccountId === account.id) : false
 
   const save = async () => {
@@ -182,6 +187,9 @@ function AccountSheet({ data, account, onClose }: { data: AppData; account?: Acc
       color,
       archived,
       createdAt: account?.createdAt ?? Date.now(),
+      ...(isCard && /^\d{4}$/.test(last4) ? { last4 } : {}),
+      ...(isCard && brand ? { brand } : {}),
+      ...(isCard && validExpiry(expiry) ? { expiry } : {}),
       ...(type === 'credit' ? { cutoffDay: day(cutoffDay), dueDay: day(dueDay), creditLimit: parseToCents(limit) || undefined } : {}),
     })
     onClose()
@@ -236,6 +244,29 @@ function AccountSheet({ data, account, onClose }: { data: AppData; account?: Acc
             <label className="form-row">
               <span>Límite de crédito</span>
               <input inputMode="decimal" placeholder="Opcional" value={limit} onChange={(e) => setLimit(e.target.value)} />
+            </label>
+          </>
+        )}
+        {isCard && (
+          <>
+            <label className="form-row">
+              <span>Últimos 4 dígitos</span>
+              <input inputMode="numeric" placeholder="Opcional" maxLength={4} value={last4} onChange={(e) => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+            </label>
+            <label className="form-row">
+              <span>Vencimiento</span>
+              <input inputMode="numeric" placeholder="MM/AA" value={expiry} onChange={(e) => setExpiry(formatExpiry(e.target.value, expiry))} />
+            </label>
+            <label className="form-row">
+              <span>Marca</span>
+              <select value={brand} onChange={(e) => setBrand(e.target.value as CardBrand | '')}>
+                <option value="">Sin marca</option>
+                {Object.entries(BRAND_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
             </label>
           </>
         )}

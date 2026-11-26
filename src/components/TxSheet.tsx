@@ -10,6 +10,8 @@ interface Props {
   data: AppData
   /** Movimiento a editar; vacío para uno nuevo. */
   tx?: Transaction
+  /** Tipo con el que abre un movimiento nuevo. */
+  initialType?: TxType
   onClose: () => void
 }
 
@@ -21,16 +23,16 @@ const TYPES: [TxType, string][] = [
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫']
 
-export function TxSheet({ data, tx, onClose }: Props) {
+export function TxSheet({ data, tx, initialType, onClose }: Props) {
   const active = data.accounts.filter((a) => !a.archived)
   const [lastAccount, setLastAccount] = useStoredState('lastAccount', active[0]?.id ?? '')
   const [lastCategory, setLastCategory] = useStoredState<Record<string, string>>('lastCategory', {})
 
-  const [type, setType] = useState<TxType>(tx?.type ?? 'expense')
+  const [type, setType] = useState<TxType>(tx?.type ?? initialType ?? 'expense')
   const [amount, setAmount] = useState(tx ? centsToInput(tx.amount) : '')
   const [accountId, setAccountId] = useState(tx?.accountId ?? (data.accountById.has(lastAccount) ? lastAccount : (active[0]?.id ?? '')))
   const [toAccountId, setToAccountId] = useState(tx?.toAccountId ?? active.find((a) => a.id !== accountId)?.id ?? '')
-  const [categoryId, setCategoryId] = useState(tx?.categoryId ?? lastCategory.expense ?? '')
+  const [categoryId, setCategoryId] = useState(tx?.categoryId ?? lastCategory[initialType === 'income' ? 'income' : 'expense'] ?? '')
   const [date, setDate] = useState(tx?.date ?? todayISO())
   const [note, setNote] = useState(tx?.note ?? '')
   const [repeat, setRepeat] = useState<RecurringFrequency | ''>('')
