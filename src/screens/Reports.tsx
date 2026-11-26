@@ -3,6 +3,7 @@ import { MonthPicker } from '../components/MonthPicker'
 import { currentMonth, formatMoney, monthLabel, shiftMonth } from '../format'
 import { monthTotals, useStoredState, type AppData } from '../hooks'
 import { Projection } from './Projection'
+import { NetWorthChart } from '../components/NetWorthChart'
 
 export function Reports({ data }: { data: AppData }) {
   const [view, setView] = useStoredState<'summary' | 'projection'>('reportsView', 'summary')
@@ -30,6 +31,14 @@ function Summary({ data }: { data: AppData }) {
   const months = Array.from({ length: 6 }, (_, i) => shiftMonth(month, i - 5))
   const history = months.map((m) => ({ m, ...monthTotals(data.transactions, m) }))
   const maxBar = Math.max(1, ...history.flatMap((h) => [h.income, h.expense]))
+  const tagMap = new Map<string, [number, number]>()
+  for (const t of data.transactions)
+    if (t.type === 'expense' && t.date.startsWith(month))
+      for (const g of t.tags ?? []) {
+        const [v, n] = tagMap.get(g) ?? [0, 0]
+        tagMap.set(g, [v + t.amount, n + 1])
+      }
+  const tagTotals = [...tagMap].map(([g, [v, n]]) => [g, v, n] as const).sort((a, b) => b[1] - a[1])
 
   return (
     <>
@@ -51,6 +60,8 @@ function Summary({ data }: { data: AppData }) {
           </div>
         </div>
       </section>
+
+      <NetWorthChart data={data} month={month} />
 
       <section className="card">
         <div className="card-title">
@@ -79,6 +90,25 @@ function Summary({ data }: { data: AppData }) {
           </div>
         )}
       </section>
+
+      {tagTotals.length > 0 && (
+        <section className="card list-card">
+          <div className="card-title">
+            <span>Gastos por etiqueta</span>
+          </div>
+          {tagTotals.map(([tag, v, n]) => (
+            <div key={tag} className="row static">
+              <span className="tag">#{tag}</span>
+              <span className="row-text">
+                <span className="row-sub">
+                  {n} movimiento{n > 1 ? 's' : ''}
+                </span>
+              </span>
+              <span className="row-amount">{formatMoney(v)}</span>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="card">
         <div className="card-title">

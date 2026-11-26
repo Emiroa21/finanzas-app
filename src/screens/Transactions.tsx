@@ -19,7 +19,7 @@ export function Transactions({ data, onEdit }: { data: AppData; onEdit: (tx: Tra
     if (accountId && t.accountId !== accountId && t.toAccountId !== accountId) return false
     if (!q) return true
     const cat = data.categoryById.get(t.categoryId ?? '')?.name ?? ''
-    return t.note.toLowerCase().includes(q) || cat.toLowerCase().includes(q) || String(t.amount / 100).includes(q)
+    return t.note.toLowerCase().includes(q) || (t.tags ?? []).some((g) => g.includes(q.replace(/^#/, ''))) || cat.toLowerCase().includes(q) || String(t.amount / 100).includes(q)
   })
 
   const groups = new Map<string, Transaction[]>()
@@ -30,7 +30,7 @@ export function Transactions({ data, onEdit }: { data: AppData; onEdit: (tx: Tra
       <h1 className="title">Historial</h1>
       <MonthPicker month={month} onChange={setMonth} />
       <div className="filters">
-        <input type="search" placeholder="Buscar nota, categoría o monto" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder="Buscar nota, #etiqueta o monto" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select value={accountId} onChange={(e) => setAccountId(e.target.value)} aria-label="Cuenta">
           <option value="">Todas</option>
           {data.accounts.map((a) => (
@@ -91,6 +91,7 @@ export function Transactions({ data, onEdit }: { data: AppData; onEdit: (tx: Tra
           })}
         </section>
       )}
+      {list.length > 0 && <p className="hint center">Desliza un movimiento a la izquierda para duplicarlo o borrarlo.</p>}
     </>
   )
 }

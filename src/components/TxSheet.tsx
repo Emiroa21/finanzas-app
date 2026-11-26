@@ -6,6 +6,7 @@ import { centsToInput, formatMoney, parseToCents, todayISO } from '../format'
 import { useStoredState, type AppData } from '../hooks'
 import { Sheet } from './Sheet'
 import { toast } from '../toast'
+import { normalizeTag, photoToDataURL } from '../photo'
 
 interface Props {
   data: AppData
@@ -39,7 +40,31 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
   const [repeat, setRepeat] = useState<RecurringFrequency | ''>('')
   const [installments, setInstallments] = useState(tx?.installments ? String(tx.installments) : '')
   const [error, setError] = useState('')
-  const [more, setMore] = useState(!!tx?.installments)
+  const [more, setMore] = useState(!!(tx?.installments || tx?.tags?.length || tx?.photo))
+  const [tags, setTags] = useState<string[]>(tx?.tags ?? [])
+  const [tagInput, setTagInput] = useState('')
+  const [photo, setPhoto] = useState<string | undefined>(tx?.photo)
+  const [viewing, setViewing] = useState(false)
+  const attachRef = useRef<HTMLInputElement>(null)
+  const knownTags = (() => {
+    const count = new Map<string, number>()
+    for (const t of data.transactions) for (const g of t.tags ?? []) count.set(g, (count.get(g) ?? 0) + 1)
+    return [...count].sort((a, b) => b[1] - a[1]).map(([g]) => g)
+  })()
+  const suggestions = knownTags.filter((g) => !tags.includes(g) && g.startsWith(normalizeTag(tagInput))).slice(0, 6)
+  const addTag = (raw: string) => {
+    const t = normalizeTag(raw)
+    if (t && !tags.includes(t)) setTags([...tags, t])
+    setTagInput('')
+  }
+  const attach = async (file?: File) => {
+    if (!file) return
+    try {
+      setPhoto(await photoToDataURL(file))
+    } catch {
+      setError('No se pudo leer la foto.')
+    }
+  }
   const [scanning, setScanning] = useState<number | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
 
@@ -48,6 +73,7 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
     setError('')
     setScanning(0)
     try {
+      photoToDataURL(file).then(setPhoto, () => undefined)
       const guess = await scanReceipt(file, setScanning)
       if (guess.amount) setAmount(centsToInput(guess.amount))
       if (guess.date) setDate(guess.date)
@@ -93,6 +119,7 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
     if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) return setError('Elige una cuenta destino distinta.')
     if (type !== 'transfer' && !categoryId) return setError('Elige una categoría.')
 
+    const finalTags = [...tags, normalizeTag(tagInput)].filter((t, i, a) => t && a.indexOf(t) === i)
     const record: Transaction = {
       id: tx?.id ?? newId(),
       type,
@@ -102,15 +129,14 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
       categoryId: type === 'transfer' ? undefined : categoryId,
       date,
       note: note.trim(),
+      tags: finalTags.length ? finalTags : undefined,
+      photo,
       createdAt: tx?.createdAt ?? Date.now(),
       recurringId: tx?.recurringId,
       installments: isCredit && type === 'expense' && Number(installments) > 1 ? Number(installments) : undefined,
     }
     if (repeat && !tx) {
-      const rule = recurringFrom(
-        { type, amount: cents, accountId, toAccountId: record.toAccountId, categoryId: record.categoryId, note: record.note, frequency: repeat },
-        date,
-      )
+      const rule = recurringFrom({ type, amount: cents, accountId, toAccountId: record.toAccountId, categoryId: record.categoryId, note: record.note, frequency: repeat }, date)
       record.recurringId = rule.id
       await db.recurring.add(rule)
     }
@@ -200,7 +226,12 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
       {type !== 'transfer' && (
         <div className="chips scroll">
           {categories.map((c) => (
-            <button key={c.id} className={`chip ${c.id === categoryId ? 'on' : ''}`} style={c.id === categoryId ? { borderColor: c.color, background: `${c.color}26` } : undefined} onClick={() => setCategoryId(c.id)}>
+            <button
+              key={c.id}
+              className={`chip ${c.id === categoryId ? 'on' : ''}`}
+              style={c.id === categoryId ? { borderColor: c.color, background: `${c.color}26` } : undefined}
+              onClick={() => setCategoryId(c.id)}
+            >
               <span>{c.icon}</span> {c.name}
             </button>
           ))}
@@ -220,40 +251,100 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
         </label>
       </div>
 
-      {!tx || isCredit ? (
-        <button className="more-toggle" onClick={() => setMore(!more)} aria-expanded={more}>
-          {more ? 'Menos opciones ▴' : `Más opciones ▾${repeat ? ` · ${FREQ_LABELS[repeat]}` : ''}${installments ? ` · ${installments} MSI` : ''}`}
-        </button>
-      ) : null}
+      <button className="more-toggle" onClick={() => setMore(!more)} aria-expanded={more}>
+        {more
+          ? 'Menos opciones ▴'
+          : `Más opciones ▾${repeat ? ` · ${FREQ_LABELS[repeat]}` : ''}${installments ? ` · ${installments} MSI` : ''}${tags.length ? ` · ${tags.length} etiqueta${tags.length > 1 ? 's' : ''}` : ''}${photo ? ' · 📎' : ''}`}
+      </button>
       {more && (
-      <div className="field-row">
-        {!tx && (
-          <label>
-            <span>Repetir</span>
-            <select value={repeat} onChange={(e) => setRepeat(e.target.value as RecurringFrequency | '')}>
-              <option value="">No se repite</option>
-              {Object.entries(FREQ_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
+        <div className="extras">
+          <div className="tag-box">
+            {tags.map((t) => (
+              <button key={t} className="tag removable" onClick={() => setTags(tags.filter((x) => x !== t))} aria-label={`Quitar ${t}`}>
+                #{t} ✕
+              </button>
+            ))}
+            <input
+              value={tagInput}
+              placeholder={tags.length ? 'Otra etiqueta' : '# Etiquetas (viaje, trabajo…)'}
+              enterKeyHint="done"
+              onChange={(e) => {
+                const v = e.target.value
+                if (/[,\s]$/.test(v) && v.trim()) addTag(v)
+                else setTagInput(v)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addTag(tagInput)
+                }
+              }}
+            />
+          </div>
+          {suggestions.length > 0 && (
+            <div className="tag-suggest">
+              {suggestions.map((g) => (
+                <button key={g} className="tag" onClick={() => addTag(g)}>
+                  + #{g}
+                </button>
               ))}
-            </select>
-          </label>
-        )}
-        {isCredit && type === 'expense' && (
-          <label>
-            <span>Meses sin intereses</span>
-            <select value={installments} onChange={(e) => setInstallments(e.target.value)}>
-              <option value="">De contado</option>
-              {[3, 6, 9, 12, 18, 24].map((n) => (
-                <option key={n} value={n}>
-                  {n} MSI
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
+            </div>
+          )}
+          <div className="photo-row">
+            {photo ? (
+              <>
+                <button className="thumb" onClick={() => setViewing(true)} aria-label="Ver foto">
+                  <img src={photo} alt="Foto del ticket" />
+                </button>
+                <button className="link" onClick={() => attachRef.current?.click()}>
+                  Cambiar foto
+                </button>
+                <button className="link danger" onClick={() => setPhoto(undefined)}>
+                  Quitar
+                </button>
+              </>
+            ) : (
+              <button className="secondary-btn small" onClick={() => attachRef.current?.click()}>
+                📎 Adjuntar foto del ticket
+              </button>
+            )}
+            <input ref={attachRef} type="file" accept="image/*" hidden onChange={(e) => attach(e.target.files?.[0]).finally(() => (e.target.value = ''))} />
+          </div>
+          <div className="field-row">
+            {!tx && (
+              <label>
+                <span>Repetir</span>
+                <select value={repeat} onChange={(e) => setRepeat(e.target.value as RecurringFrequency | '')}>
+                  <option value="">No se repite</option>
+                  {Object.entries(FREQ_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {isCredit && type === 'expense' && (
+              <label>
+                <span>Meses sin intereses</span>
+                <select value={installments} onChange={(e) => setInstallments(e.target.value)}>
+                  <option value="">De contado</option>
+                  {[3, 6, 9, 12, 18, 24].map((n) => (
+                    <option key={n} value={n}>
+                      {n} MSI
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        </div>
+      )}
+      {viewing && photo && (
+        <div className="photo-viewer" onClick={() => setViewing(false)} role="dialog" aria-label="Foto del ticket">
+          <img src={photo} alt="Foto del ticket" />
+          <span>Toca para cerrar</span>
+        </div>
       )}
 
       <div className="keypad">

@@ -60,10 +60,10 @@ export async function exportCSV() {
   const acc = new Map(accounts.map((a) => [a.id, a.name]))
   const cat = new Map(categories.map((c) => [c.id, c.name]))
   const type = { expense: 'Gasto', income: 'Ingreso', transfer: 'Transferencia' }
-  const rows = [['Fecha', 'Tipo', 'Monto (MXN)', 'Cuenta', 'Cuenta destino', 'Categoría', 'Nota']]
+  const rows = [['Fecha', 'Tipo', 'Monto (MXN)', 'Cuenta', 'Cuenta destino', 'Categoría', 'Nota', 'Etiquetas']]
   for (const t of txs) {
     const signed = t.type === 'expense' ? -t.amount : t.amount
-    rows.push([t.date, type[t.type], (signed / 100).toFixed(2), acc.get(t.accountId) ?? '', acc.get(t.toAccountId ?? '') ?? '', cat.get(t.categoryId ?? '') ?? '', t.note])
+    rows.push([t.date, type[t.type], (signed / 100).toFixed(2), acc.get(t.accountId) ?? '', acc.get(t.toAccountId ?? '') ?? '', cat.get(t.categoryId ?? '') ?? '', t.note, (t.tags ?? []).map((g) => `#${g}`).join(' ')])
   }
   // El BOM hace que Excel lea bien los acentos.
   await saveFile(`finanzas-movimientos-${todayISO()}.csv`, 'text/csv', '﻿' + rows.map((r) => r.map(csvCell).join(',')).join('\n'))

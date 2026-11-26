@@ -8,6 +8,7 @@ import { cardStatus } from '../credit'
 import { centsToInput, dayLabel, formatMoney, parseToCents } from '../format'
 import { disableLock, enableFaceId, faceIdAvailable, faceIdEnabled, lockEnabled, setPin } from '../lock'
 import { useStoredState, type AppData } from '../hooks'
+import { applyTheme, getTheme, type ThemeMode } from '../theme'
 
 export function Accounts({ data }: { data: AppData }) {
   const [account, setAccount] = useState<Account | 'new' | null>(null)
@@ -63,6 +64,7 @@ export function Accounts({ data }: { data: AppData }) {
         </div>
       </section>
 
+      <AppearanceCard />
       <SecurityCard />
 
       <BackupCard data={data} />
@@ -365,6 +367,36 @@ function CategorySheet({ data, category, onClose }: { data: AppData; category?: 
           </button>
         ))}
     </Sheet>
+  )
+}
+
+function AppearanceCard() {
+  const [mode, setMode] = useStoredState<ThemeMode>('theme', getTheme())
+  const pick = (m: ThemeMode) => {
+    setMode(m)
+    applyTheme(m)
+  }
+  return (
+    <section className="card">
+      <div className="card-title">
+        <span>Apariencia</span>
+      </div>
+      <div className="theme-pick">
+        {(
+          [
+            ['light', 'Claro', '☀️'],
+            ['dark', 'Oscuro', '🌙'],
+            ['auto', 'Automático', '⚙️'],
+          ] as [ThemeMode, string, string][]
+        ).map(([m, label, icon]) => (
+          <button key={m} className={`theme-opt ${m} ${m === mode ? 'on' : ''}`} onClick={() => pick(m)} aria-pressed={m === mode}>
+            <span className="theme-swatch">{icon}</span>
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="hint">Automático sigue la configuración de tu iPhone.</p>
+    </section>
   )
 }
 

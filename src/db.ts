@@ -55,6 +55,10 @@ export interface Transaction {
   recurringId?: string
   /** Fecha programada del pago que este movimiento confirma. */
   dueDate?: string
+  /** Etiquetas libres, en minúsculas y sin #. */
+  tags?: string[]
+  /** Foto del ticket como data URL JPEG reducida (viaja en el respaldo). */
+  photo?: string
 }
 
 export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'yearly'
@@ -98,6 +102,18 @@ export interface Goal {
   moves: Movement[]
   createdAt: number
   done: boolean
+  /** Si la meta es un reto de ahorro (52 semanas, sobres…). */
+  challenge?: Challenge
+}
+
+export type ChallengeKind = 'weekly-up' | 'weekly-down' | 'envelopes' | 'fixed'
+
+export interface Challenge {
+  kind: ChallengeKind
+  /** Monto base en centavos. */
+  base: number
+  /** Inicio del reto (AAAA-MM-DD). */
+  start: string
 }
 
 export interface Debt {
