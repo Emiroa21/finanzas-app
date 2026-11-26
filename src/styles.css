@@ -445,24 +445,6 @@ input[type='checkbox'] {
 }
 
 /* Botón flotante y barra de pestañas */
-.fab {
-  position: fixed;
-  right: max(20px, calc(50% - 300px));
-  bottom: calc(var(--safe-bottom) + 92px);
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-  z-index: 10;
-}
-.fab:active {
-  transform: scale(0.94);
-}
-
 /* Barra de pestañas flotante tipo píldora */
 .tabbar {
   position: fixed;
@@ -471,7 +453,7 @@ input[type='checkbox'] {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   padding: 6px;
   border-radius: 40px;
   background: var(--pill);
@@ -484,9 +466,11 @@ input[type='checkbox'] {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  flex: none;
+  white-space: nowrap;
   height: 46px;
-  min-width: 46px;
-  padding: 0 11px;
+  min-width: 40px;
+  padding: 0;
   border-radius: 23px;
   color: #d1d1d6;
   background: var(--pill-btn);
@@ -499,10 +483,23 @@ input[type='checkbox'] {
   height: 22px;
   flex: none;
 }
+.tabbar .tab-add {
+  background: var(--accent);
+  color: #fff;
+  margin-left: 3px;
+  width: 46px;
+}
+.tabbar .tab-add svg {
+  width: 24px;
+  height: 24px;
+}
+.tabbar .tab-add:active {
+  transform: scale(0.92);
+}
 .tabbar button.on {
   background: #fff;
   color: #111;
-  padding: 0 16px 0 13px;
+  padding: 0 14px 0 12px;
   animation: pill-in 0.25s ease-out;
 }
 @keyframes pill-in {
@@ -1176,7 +1173,7 @@ input[type='checkbox'] {
 }
 .greet h1 {
   margin: 0;
-  font-size: 26px;
+  font-size: clamp(21px, 6.4vw, 26px);
   letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
@@ -1443,7 +1440,7 @@ input[type='checkbox'] {
   font-size: 12px;
 }
 .month-card strong {
-  font-size: 16px;
+  font-size: clamp(13px, 4vw, 16px);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
@@ -1567,4 +1564,227 @@ input[type='checkbox'] {
   color: #fff;
   font-size: 28px;
   animation: pill-in 0.3s ease-out;
+}
+
+/* Transición entre pestañas */
+.screen {
+  animation: screen-in 0.22s ease-out;
+}
+@keyframes screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Aviso con deshacer */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 84px);
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: calc(100% - 32px);
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #1c1c1e;
+  color: #fff;
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: toast-in 0.25s ease-out;
+}
+.toast span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast button {
+  flex: none;
+  color: #4cd964;
+  font-weight: 700;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .toast {
+    background: #3a3a3c;
+  }
+}
+
+/* Hoja de movimiento */
+.more-toggle {
+  display: block;
+  margin: 0 auto 8px;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 4px 8px;
+}
+.save-btn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 15px;
+  border-radius: 28px;
+  background: var(--expense);
+  color: #fff;
+  font-weight: 700;
+  font-size: 17px;
+}
+.save-btn.income {
+  background: var(--income);
+}
+.save-btn.transfer {
+  background: var(--blue);
+}
+.save-btn:active {
+  transform: scale(0.98);
+}
+
+/* Movimientos */
+.seg-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px 12px;
+  padding: 0 16px;
+}
+.seg-chips::-webkit-scrollbar {
+  display: none;
+}
+.seg-chips button {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 18px;
+  background: var(--card);
+  font-size: 14px;
+  font-weight: 500;
+}
+.seg-chips button.on {
+  background: var(--text);
+  color: var(--bg);
+}
+.day-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card);
+  z-index: 1;
+}
+.day-head .income {
+  color: var(--income);
+}
+.day-group .row:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.day-group:last-child .row:last-child {
+  border-bottom: 0;
+}
+
+/* Primeros pasos */
+.steps .hint {
+  margin: 6px 0 4px;
+  font-size: 13px;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.step:last-child {
+  border-bottom: 0;
+}
+.step > span:nth-child(2) {
+  flex: 1;
+}
+.step-check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.step.done .step-check {
+  background: var(--income);
+  border-color: var(--income);
+}
+.step.done {
+  color: var(--muted);
+  text-decoration: line-through;
+  cursor: default;
+}
+.step-go {
+  color: var(--muted);
+  font-size: 22px;
+}
+
+/* Resumen inteligente */
+.insight {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.insight-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--fill);
+  font-size: 20px;
+}
+.insight-icon.up {
+  background: color-mix(in srgb, var(--expense) 18%, transparent);
+}
+.insight-icon.down {
+  background: color-mix(in srgb, var(--income) 18%, transparent);
+}
+.insight strong {
+  display: block;
+  font-size: 15px;
+}
+.insight p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* Pantallas muy angostas: la pestaña activa solo muestra el ícono */
+@media (max-width: 359px) {
+  .tabbar button.on span {
+    display: none;
+  }
+  .tabbar button.on {
+    padding: 0 12px;
+  }
 }

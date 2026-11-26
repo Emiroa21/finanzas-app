@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { ConfirmPaymentSheet } from '../components/ConfirmPaymentSheet'
 import { Sheet } from '../components/Sheet'
 import { TxRow } from '../components/TxRow'
-import { Wallet } from '../components/Wallet'
+import { AddCardSheet, Wallet } from '../components/Wallet'
 import type { Account, Transaction, TxType } from '../db'
-import { currentMonth, dayLabel, formatMoney, monthLabel } from '../format'
+import { currentMonth, dayLabel, daysInMonth, formatMoney, monthLabel, shiftMonth, todayISO } from '../format'
 import { monthTotals, useStoredState, type AppData } from '../hooks'
 import { AccountSheet } from './Accounts'
 
@@ -36,6 +36,9 @@ export function Home({ data, onEdit, onNew, onSeeAll, onBackup, onPlan }: Props)
   const [userName, setUserName] = useStoredState('userName', '')
   const [profile, setProfile] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
+  const [front, setFront] = useStoredState('walletFront', '')
+  const [adding, setAdding] = useState(false)
+  const [stepsHidden, setStepsHidden] = useStoredState('stepsHidden', false)
   const alerts = buildAlerts(data, lastBackup)
   const [payingId, setPayingId] = useState<string | null>(null)
   const paying = data.recurring.find((r) => r.id === payingId)
@@ -67,7 +70,7 @@ export function Home({ data, onEdit, onNew, onSeeAll, onBackup, onPlan }: Props)
         </button>
       </header>
 
-      <Wallet data={data} hidden={hidden} onToggleHidden={() => setHidden(!hidden)} onOpen={setEditing} />
+      <Wallet data={data} hidden={hidden} onToggleHidden={() => setHidden(!hidden)} onOpen={setEditing} onAdd={() => setAdding(true)} front={front} onFront={setFront} />
 
       <section className="card actions">
         {ACTIONS.map(([id, label, icon]) => (
@@ -92,6 +95,21 @@ export function Home({ data, onEdit, onNew, onSeeAll, onBackup, onPlan }: Props)
           <strong className="expense">{mask(totals.expense)}</strong>
         </div>
       </section>
+
+      {!stepsHidden && (
+        <FirstSteps
+          steps={[
+            { done: !!userName, label: 'Dinos tu nombre', run: () => setProfile(true) },
+            { done: data.accounts.some((a) => a.last4), label: 'Agrega tu primera tarjeta', run: () => setAdding(true) },
+            { done: data.transactions.length > 0, label: 'Registra un gasto', run: () => onNew('expense') },
+            { done: data.budgets.length > 0, label: 'Crea un presupuesto', run: onPlan },
+            { done: !!lastBackup, label: 'Guarda un respaldo', run: onBackup },
+          ]}
+          onHide={() => setStepsHidden(true)}
+        />
+      )}
+
+      <Insights data={data} hidden={hidden} />
 
       {alerts.length > 0 && (
         <section className="card list-card" id="avisos">
@@ -163,8 +181,91 @@ export function Home({ data, onEdit, onNew, onSeeAll, onBackup, onPlan }: Props)
 
       {paying && <ConfirmPaymentSheet data={data} rule={paying} onClose={() => setPayingId(null)} />}
       {editing && <AccountSheet data={data} account={editing} onClose={() => setEditing(null)} />}
+      {adding && <AddCardSheet onClose={() => setAdding(false)} onAdded={setFront} count={data.accounts.length} />}
       {profile && <ProfileSheet name={userName} onSave={setUserName} onClose={() => setProfile(false)} />}
     </>
+  )
+}
+
+interface Step {
+  done: boolean
+  label: string
+  run: () => void
+}
+
+/** Lista de primeros pasos que desaparece cuando todo está hecho. */
+function FirstSteps({ steps, onHide }: { steps: Step[]; onHide: () => void }) {
+  const done = steps.filter((s) => s.done).length
+  if (done === steps.length) return null
+  return (
+    <section className="card steps">
+      <div className="card-title">
+        <span>Primeros pasos</span>
+        <button className="link" onClick={onHide}>
+          Ocultar
+        </button>
+      </div>
+      <span className="progress">
+        <span className="progress-fill ok" style={{ width: `${(done / steps.length) * 100}%` }} />
+      </span>
+      <p className="hint">
+        {done} de {steps.length} listos
+      </p>
+      {steps.map((s) => (
+        <button key={s.label} className={`step ${s.done ? 'done' : ''}`} onClick={s.run} disabled={s.done}>
+          <span className="step-check">{s.done ? '✓' : ''}</span>
+          <span>{s.label}</span>
+          {!s.done && <span className="step-go">›</span>}
+        </button>
+      ))}
+    </section>
+  )
+}
+
+/** Compara el gasto del mes contra el mismo punto del mes anterior y proyecta el cierre. */
+function Insights({ data, hidden }: { data: AppData; hidden: boolean }) {
+  const today = todayISO()
+  const month = currentMonth()
+  const day = Number(today.slice(8, 10))
+  const prev = shiftMonth(month, -1)
+  const prevCut = `${prev}-${String(Math.min(day, daysInMonth(prev))).padStart(2, '0')}`
+  let now = 0
+  let before = 0
+  let prevTotal = 0
+  for (const t of data.transactions) {
+    if (t.type !== 'expense') continue
+    if (t.date.startsWith(month) && t.date <= today) now += t.amount
+    else if (t.date.startsWith(prev)) {
+      prevTotal += t.amount
+      if (t.date <= prevCut) before += t.amount
+    }
+  }
+  if (now === 0 && prevTotal === 0) return null
+  const projected = Math.round((now / day) * daysInMonth(month))
+  const diff = before > 0 ? (now - before) / before : null
+  const money = (c: number) => (hidden ? '•••••' : formatMoney(c))
+  const up = diff !== null && diff > 0.05
+  const down = diff !== null && diff < -0.05
+
+  return (
+    <section className="card insight">
+      <span className={`insight-icon ${up ? 'up' : down ? 'down' : ''}`}>{up ? '📈' : down ? '📉' : '💡'}</span>
+      <div>
+        <strong>
+          {diff === null
+            ? `Llevas ${money(now)} gastados este mes`
+            : up
+              ? `Vas gastando ${Math.round(diff * 100)}% más que en ${monthLabel(prev).split(' ')[0].toLowerCase()}`
+              : down
+                ? `Vas gastando ${Math.round(-diff * 100)}% menos que en ${monthLabel(prev).split(' ')[0].toLowerCase()}`
+                : `Vas al mismo ritmo que en ${monthLabel(prev).split(' ')[0].toLowerCase()}`}
+        </strong>
+        <p>
+          Promedio de {money(Math.round(now / day))} al día. A este ritmo cerrarás el mes en {money(projected)}
+          {prevTotal > 0 ? ` (el mes pasado fueron ${money(prevTotal)})` : ''}.
+        </p>
+      </div>
+    </section>
   )
 }
 

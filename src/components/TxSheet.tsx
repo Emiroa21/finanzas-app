@@ -5,6 +5,7 @@ import { scanReceipt } from '../receipt'
 import { centsToInput, formatMoney, parseToCents, todayISO } from '../format'
 import { useStoredState, type AppData } from '../hooks'
 import { Sheet } from './Sheet'
+import { toast } from '../toast'
 
 interface Props {
   data: AppData
@@ -38,6 +39,7 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
   const [repeat, setRepeat] = useState<RecurringFrequency | ''>('')
   const [installments, setInstallments] = useState(tx?.installments ? String(tx.installments) : '')
   const [error, setError] = useState('')
+  const [more, setMore] = useState(!!tx?.installments)
   const [scanning, setScanning] = useState<number | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
 
@@ -116,13 +118,23 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
     setLastAccount(accountId)
     if (type !== 'transfer') setLastCategory({ ...lastCategory, [type]: categoryId })
     onClose()
+    const previous = tx
+    const newRule = repeat && !tx ? record.recurringId : undefined
+    toast(`${previous ? 'Cambios guardados' : `${TYPES.find((t) => t[0] === type)![1]} guardado`} · ${formatMoney(cents)}`, {
+      label: 'Deshacer',
+      run: async () => {
+        if (previous) await db.transactions.put(previous)
+        else await db.transactions.delete(record.id)
+        if (newRule) await db.recurring.delete(newRule)
+      },
+    })
   }
 
   const remove = async () => {
-    if (tx && confirm('¿Borrar este movimiento?')) {
-      await db.transactions.delete(tx.id)
-      onClose()
-    }
+    if (!tx) return
+    await db.transactions.delete(tx.id)
+    onClose()
+    toast('Movimiento borrado', { label: 'Deshacer', run: () => db.transactions.put(tx).then(() => undefined) })
   }
 
   return (
@@ -208,6 +220,12 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
         </label>
       </div>
 
+      {!tx || isCredit ? (
+        <button className="more-toggle" onClick={() => setMore(!more)} aria-expanded={more}>
+          {more ? 'Menos opciones ▴' : `Más opciones ▾${repeat ? ` · ${FREQ_LABELS[repeat]}` : ''}${installments ? ` · ${installments} MSI` : ''}`}
+        </button>
+      ) : null}
+      {more && (
       <div className="field-row">
         {!tx && (
           <label>
@@ -236,6 +254,7 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
           </label>
         )}
       </div>
+      )}
 
       <div className="keypad">
         {KEYS.map((k) => (
@@ -244,6 +263,11 @@ export function TxSheet({ data, tx, initialType, onClose }: Props) {
           </button>
         ))}
       </div>
+
+      <button className={`save-btn ${type}`} onClick={save}>
+        {tx ? 'Guardar cambios' : `Guardar ${TYPES.find((t) => t[0] === type)![1].toLowerCase()}`}
+        {cents > 0 && ` · ${formatMoney(cents)}`}
+      </button>
 
       {tx && (
         <button className="danger-btn" onClick={remove}>

@@ -3,6 +3,7 @@ import { ChartIcon, GaugeIcon, HomeIcon, ListIcon, PlusIcon, WalletIcon } from '
 import { LockScreen } from './components/LockScreen'
 import { TxSheet } from './components/TxSheet'
 import { Splash } from './components/Splash'
+import { Toast } from './components/Toast'
 import { requestPersistence, type Transaction, type TxType } from './db'
 import { useData } from './hooks'
 import { lockEnabled } from './lock'
@@ -20,7 +21,7 @@ type Tab = 'home' | 'transactions' | 'plan' | 'reports' | 'accounts'
 
 const TABS: [Tab, string, ReactNode][] = [
   ['home', 'Inicio', <HomeIcon />],
-  ['transactions', 'Movimientos', <ListIcon />],
+  ['transactions', 'Historial', <ListIcon />],
   ['plan', 'Planear', <GaugeIcon />],
   ['reports', 'Reportes', <ChartIcon />],
   ['accounts', 'Cuentas', <WalletIcon />],
@@ -55,6 +56,18 @@ export function App() {
     window.scrollTo(0, 0)
   }, [tab])
 
+  // Atajo: abrir la app con ?accion=gasto (o ingreso / transferencia) abre el registro directo.
+  useEffect(() => {
+    const url = new URL(location.href)
+    const action = url.searchParams.get('accion')
+    const map: Record<string, TxType> = { gasto: 'expense', ingreso: 'income', transferencia: 'transfer' }
+    if (action && map[action]) {
+      setSheet(map[action])
+      url.searchParams.delete('accion')
+      history.replaceState(null, '', url)
+    }
+  }, [])
+
   if (splash) return <Splash ready={!!data} onDone={() => setSplash(false)} />
   if (locked) return <LockScreen onUnlock={() => setLocked(false)} />
   if (!data) return <div className="loading">Cargando…</div>
@@ -63,7 +76,7 @@ export function App() {
 
   return (
     <>
-      <main className="screen">
+      <main className="screen" key={tab}>
         {tab === 'home' && (
           <Home
             data={data}
@@ -80,11 +93,6 @@ export function App() {
         {tab === 'accounts' && <Accounts data={data} />}
       </main>
 
-      {tab !== 'accounts' && tab !== 'home' && (
-        <button className="fab" aria-label="Agregar movimiento" onClick={() => setSheet('expense')}>
-          <PlusIcon />
-        </button>
-      )}
 
       <nav className="tabbar">
         {TABS.map(([id, label, icon]) => (
@@ -93,7 +101,11 @@ export function App() {
             {id === tab && <span>{label}</span>}
           </button>
         ))}
+        <button className="tab-add" aria-label="Agregar movimiento" onClick={() => setSheet('expense')}>
+          <PlusIcon />
+        </button>
       </nav>
+      <Toast />
 
       {sheet && (
         <TxSheet
